@@ -57,30 +57,40 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    final username = _usernameController.text.trim();
-    final content = _messageController.text.trim();
+  final username = _usernameController.text.trim();
+  final content = _messageController.text.trim();
 
-    final createRequest = CreateMessageRequest(username: username, content: content);
-    final validationError = createRequest.validate();
-    if (validationError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(validationError)),
-      );
-      return;
-    }
-
-    try {
-      final newMessage = await _apiService.createMessage(createRequest);
-      setState(() {
-        _messages.add(newMessage);
-        _messageController.clear();
-      });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error sending message: $e')),
-      );
-    }
+  final createRequest = CreateMessageRequest(username: username, content: content);
+  
+  try {
+    createRequest.validate(); 
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
+    return;
   }
+
+  try {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    final newMessage = await _apiService.createMessage(createRequest);
+    setState(() {
+      _messages.add(newMessage);
+      _messageController.clear();
+    });
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error sending message: ${e.toString()}')),
+    );
+  } finally {
+    setState(() {
+      _isLoading = false;
+    });
+  }
+}
 
   Future<void> _editMessage(Message message) async {
     final controller = TextEditingController(text: message.content);
