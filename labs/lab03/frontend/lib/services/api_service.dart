@@ -137,6 +137,11 @@ Future<List<Message>> getMessages() async {
   } catch (e) {
     if (e is http.ClientException) {
       throw NetworkException('Network error: ${e.message}');
+    } else if (e.toString().contains('TimeoutException') || 
+               e.toString().contains('timed out')) {
+      throw NetworkException('Request timed out');
+    } else if (e is Exception) {
+      throw NetworkException('Network error: ${e.toString()}');
     }
     rethrow;
   }
