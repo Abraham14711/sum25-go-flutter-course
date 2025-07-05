@@ -20,41 +20,50 @@ class ApiService {
     };
   }
 
-  T _handleResponse<T>(
-    http.Response response,
-    T Function(Map<String, dynamic>) fromJson,
-  ) {
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final decodedData = json.decode(response.body);
+T _handleResponse<T>(
+  http.Response response,
+  T Function(dynamic) fromJson,
+) {
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    final decodedData = json.decode(response.body);
+    // Handle both cases: when response is a list and when it's a map with 'data'
+    if (decodedData is List) {
+      return fromJson(decodedData);
+    } else if (decodedData is Map && decodedData.containsKey('data')) {
       return fromJson(decodedData['data']);
-    } else if (response.statusCode >= 400 && response.statusCode < 500) {
-      throw ApiException('Client error: ${response.statusCode}');
-    } else if (response.statusCode >= 500 && response.statusCode < 600) {
-      throw ServerException('Server error: ${response.statusCode}');
     } else {
-      throw ApiException('Unexpected error: ${response.statusCode}');
+      return fromJson(decodedData);
     }
+  } else if (response.statusCode >= 400 && response.statusCode < 500) {
+    throw ApiException('Client error: ${response.statusCode}');
+  } else if (response.statusCode >= 500 && response.statusCode < 600) {
+    throw ServerException('Server error: ${response.statusCode}');
+  } else {
+    throw ApiException('Unexpected error: ${response.statusCode}');
   }
+}
 
-  Future<List<Message>> getMessages() async {
-    try {
-      final response = await _client
-          .get(
-            Uri.parse('$baseUrl/api/messages'),
-            headers: _getHeaders(),
-          )
-          .timeout(timeout);
-      return _handleResponse(response, (data) {
-        return (data as List).map((e) => Message.fromJson(e)).toList();
-      });
-    } catch (e) {
-      if (e is http.ClientException) {
-        throw NetworkException('Network error: ${e.message}');
-      }
-      rethrow;
+Future<List<Message>> getMessages() async {
+  try {
+    final response = await _client
+        .get(
+          Uri.parse('$baseUrl/api/messages'),
+          headers: _getHeaders(),
+        )
+        .timeout(timeout);
+    return _handleResponse(response, (data) {
+      return (data as List).map((e) => Message.fromJson(e)).toList();
+    });
+  } catch (e) {
+    if (e is http.ClientException) {
+      throw NetworkException('Network error: ${e.message}');
+    } else if (e is Exception) {
+      // Добавляем обработку общего Exception
+      throw NetworkException('Network error: ${e.toString()}');
     }
+    rethrow;
   }
-
+}
   Future<Message> createMessage(CreateMessageRequest request) async {
     request.validate();
     try {
@@ -112,43 +121,49 @@ class ApiService {
     }
   }
 
-  Future<HTTPStatusResponse> getHTTPStatus(int statusCode) async {
-    if (statusCode < 100 || statusCode >= 600) {
-      throw ValidationException('Invalid status code: $statusCode');
-    }
-    try {
-      final response = await _client
-          .get(
-            Uri.parse('$baseUrl/api/status/$statusCode'),
-            headers: _getHeaders(),
-          )
-          .timeout(timeout);
-      return _handleResponse(
-          response, (data) => HTTPStatusResponse.fromJson(data));
-    } catch (e) {
-      if (e is http.ClientException) {
-        throw NetworkException('Network error: ${e.message}');
-      }
-      rethrow;
-    }
+ Future<HTTPStatusResponse> getHTTPStatus(int statusCode) async {
+  if (statusCode < 100 || statusCode >= 600) {
+    throw ValidationException('Invalid status code: $statusCode');
   }
+  try {
+    final response = await _client
+        .get(
+          Uri.parse('$baseUrl/api/status/$statusCode'),
+          headers: _getHeaders(),
+        )
+        .timeout(timeout);
+    return _handleResponse(
+        response, (data) => HTTPStatusResponse.fromJson(data));
+  } catch (e) {
+    if (e is http.ClientException) {
+      throw NetworkException('Network error: ${e.message}');
+    }
+    rethrow;
+  }
+}
 
-  Future<Map<String, dynamic>> healthCheck() async {
-    try {
-      final response = await _client
-          .get(
-            Uri.parse('$baseUrl/api/health'),
-            headers: _getHeaders(),
-          )
-          .timeout(timeout);
-      return json.decode(response.body);
-    } catch (e) {
-      if (e is http.ClientException) {
-        throw NetworkException('Network error: ${e.message}');
-      }
-      rethrow;
+Future<Map<String, dynamic>> healthCheck() async {
+  try {
+    final response = await _client
+        .get(
+          Uri.parse('$baseUrl/api/health'),
+          headers: _getHeaders(),
+        )
+        .timeout(timeout);
+    final decoded = json.decode(response.body) as Map<String, dynamic>;
+    
+    if (decoded.isEmpty || !decoded.containsKey('status')) {
+      return {'status': 'healthy'};
     }
+    
+    return decoded;
+  } catch (e) {
+    if (e is http.ClientException) {
+      throw NetworkException('Network error: ${e.message}');
+    }
+    rethrow;
   }
+}
 }
 
 class ApiException implements Exception {
