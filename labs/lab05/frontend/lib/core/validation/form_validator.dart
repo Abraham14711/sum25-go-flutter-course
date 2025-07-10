@@ -11,11 +11,11 @@ class FormValidator {
     }
 
     if (!trimmedEmail.contains('@') || !trimmedEmail.contains('.')) {
-      return 'Invalid email format';
+      return 'invalid email format';
     }
 
     if (trimmedEmail.indexOf('@') > trimmedEmail.lastIndexOf('.')) {
-      return 'Invalid email format';
+      return 'invalid email format';
     }
 
     return null;
@@ -34,7 +34,7 @@ class FormValidator {
     final hasNumber = password.contains(RegExp(r'[0-9]'));
 
     if (!hasLetter || !hasNumber) {
-      return 'Password must contain at least one letter and one number';
+      return 'Password must contain at least one letter and number';
     }
 
     return null;
